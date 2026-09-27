@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マイル計算機</title>
+<style>
+  html {
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+    background: #f7f9f8;
+  }
+
+  body {
+    margin: 0;
+    padding: 0 16px;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    background: #f7f9f8;
+  }
+
+  .mile-simulator {
+    --mile-sim-bg: #f7f9f8;
+    --mile-sim-panel: #ffffff;
+    --mile-sim-text: #26323f;
+    --mile-sim-muted: #657485;
+    --mile-sim-line: #dbe4e6;
+    --mile-sim-primary: #2f6f7e;
+    --mile-sim-primary-dark: #204f59;
+    --mile-sim-primary-soft: #eaf5f4;
+    --mile-sim-navy: #243b53;
+    --mile-sim-coral: #bf6f5f;
+    --mile-sim-subtle: #727b86;
+    --mile-sim-subtle-bg: #f1f4f4;
+    --mile-sim-good: #2e7a62;
+    --mile-sim-shadow: 0 14px 34px rgba(36, 59, 83, 0.08);
+    --mile-sim-soft-shadow: 0 6px 18px rgba(36, 59, 83, 0.06);
+    width: min(100%, 1120px);
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 24px 0 40px;
+    overflow-x: hidden;
+    color: var(--mile-sim-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mile-simulator *,
+  .mile-simulator *::before,
+  .mile-simulator *::after {
+    box-sizing: border-box;
+  }
+
+  .mile-simulator p,
+  .mile-simulator ul {
+    margin: 0;
+  }
+
+  .mile-sim-intro {
+    position: relative;
+    margin-bottom: 24px;
+    padding: 26px 28px;
+    overflow: hidden;
+    border: 1px solid #dbe7e7;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(234, 245, 244, 0.96), rgba(255, 255, 255, 0.98) 48%, rgba(245, 239, 227, 0.68));
+    box-shadow: var(--mile-sim-soft-shadow);
+  }
+
+  .mile-sim-intro::before {
+    content: "";
+    position: absolute;
+    right: 28px;
+    top: 24px;
+    width: 180px;
+    height: 56px;
+    border-top: 2px solid rgba(47, 111, 126, 0.22);
+    border-right: 2px solid rgba(47, 111, 126, 0.16);
+    border-radius: 50%;
+    transform: rotate(-7deg);
+  }
+
+  .mile-sim-intro::after {
+    content: "AIR MILE";
+    position: absolute;
+    right: 30px;
+    bottom: 18px;
+    padding: 4px 9px;
+    border: 1px solid rgba(47, 111, 126, 0.18);
+    border-radius: 999px;
+    color: rgba(36, 59, 83, 0.42);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .mile-sim-lead {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    color: var(--mile-sim-muted);
+    font-size: 1rem;
+  }
+
+  .mile-sim-js-error {
+    margin: 16px 0;
+    padding: 12px 14px;
+    border: 1px solid #d8c7b7;
+    border-radius: 8px;
+    background: #fff8ef;
+    color: #6d5640;
+    font-weight: 700;
+  }
+
+  .mile-sim-section {
+    margin-top: 24px;
+    padding: 22px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: var(--mile-sim-panel);
+    box-shadow: var(--mile-sim-shadow);
+  }
+
+  .mile-sim-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .mile-sim-section-title {
+    margin: 0;
+    color: var(--mile-sim-navy);
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .mile-sim-button,
+  .mile-sim-small-button,
+  .mile-sim-accordion-toggle,
+  .mile-sim-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--mile-sim-primary-dark);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .mile-sim-button {
+    min-height: 42px;
+    padding: 0 18px;
+  }
+
+  .mile-sim-button:hover,
+  .mile-sim-button:focus-visible,
+  .mile-sim-small-button:hover,
+  .mile-sim-small-button:focus-visible,
+  .mile-sim-accordion-toggle:hover,
+  .mile-sim-accordion-toggle:focus-visible {
+    border-color: var(--mile-sim-primary);
+    background: var(--mile-sim-primary-soft);
+    outline: none;
+  }
+
+  .mile-sim-restore-message {
+    min-height: 1.5em;
+    margin-top: 12px;
+    color: var(--mile-sim-good);
+    font-size: 0.9rem;
+    font-weight: 800;
+  }
+
+  .mile-sim-control-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    padding: 16px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, #ffffff, #fbfcfb);
+  }
+
+  .mile-sim-condition-section {
+    margin-top: 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfb 100%);
+  }
+
+  .mile-sim-condition-head {
+    margin-bottom: 12px;
+  }
+
+  .mile-sim-condition-toggle {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--mile-sim-navy);
+    text-align: left;
+  }
+
+  .mile-sim-condition-toggle:hover,
+  .mile-sim-condition-toggle:focus-visible {
+    background: transparent;
+    outline: none;
+    color: var(--mile-sim-primary-dark);
+  }
+
+  .mile-sim-condition-body.is-collapsed {
+    display: none;
+  }
+
+  .mile-sim-section-lead {
+    margin: -6px 0 14px;
+    color: var(--mile-sim-muted);
+    font-size: 0.92rem;
+  }
+
+  .mile-sim-control-title {
+    margin-bottom: 8px;
+    color: var(--mile-sim-muted);
+    font-size: 0.9rem;
+    font-weight: 900;
+  }
+
+  .mile-sim-segment {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: #eef3f3;
+  }
+
+  .mile-sim-segment input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .mile-sim-segment span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--mile-sim-muted);
+    font-weight: 900;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .mile-sim-segment input:checked + span {
+    background: linear-gradient(180deg, var(--mile-sim-primary), var(--mile-sim-primary-dark));
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(47, 111, 126, 0.22);
+  }
+
+  .mile-sim-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: var(--mile-sim-text);
+    font-weight: 900;
+  }
+
+  .mile-sim-checkbox input {
+    width: 20px;
+    height: 20px;
+    margin-top: 3px;
+    accent-color: var(--mile-sim-primary);
+    flex: 0 0 auto;
+  }
+
+  .mile-sim-control-note {
+    margin-top: 6px;
+    color: var(--mile-sim-muted);
+    font-size: 0.86rem;
+  }
+
+  .mile-sim-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .mile-sim-input-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    max-width: 100%;
+  }
+
+  .mile-sim-point {
+    max-width: 100%;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: var(--mile-sim-soft-shadow);
+    transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .mile-sim-point.is-dragging {
+    opacity: 0.58;
+    transform: scale(0.99);
+    border-color: var(--mile-sim-primary);
+    box-shadow: 0 10px 24px rgba(47, 111, 126, 0.16);
+  }
+
+  .mile-sim-point.is-drag-over {
+    border-color: var(--mile-sim-primary);
+    box-shadow: 0 0 0 3px rgba(47, 111, 126, 0.12), var(--mile-sim-soft-shadow);
+  }
+
+  .mile-sim-point-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 0;
+    background: linear-gradient(180deg, #ffffff, #fbfcfb);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mile-sim-point:not(.is-open).is-empty .mile-sim-point-summary {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .mile-sim-point-summary:hover,
+  .mile-sim-point-summary:focus-visible {
+    background: var(--mile-sim-primary-soft);
+    outline: none;
+  }
+
+  .mile-sim-point-name {
+    display: block;
+    color: var(--mile-sim-navy);
+    font-weight: 900;
+  }
+
+  .mile-sim-point-title {
+    min-width: 0;
+  }
+
+  .mile-sim-point-value-summary {
+    display: block;
+    margin-top: 2px;
+    color: var(--mile-sim-muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+
+  .mile-sim-point.is-empty .mile-sim-point-value-summary {
+    color: #89939f;
+    font-weight: 700;
+  }
+
+  .mile-sim-point-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+
+  .mile-sim-drag-handle {
+    border-style: dashed;
+    color: var(--mile-sim-muted);
+    cursor: grab;
+    user-select: none;
+  }
+
+  .mile-sim-point-body {
+    display: none;
+    padding: 0 16px 16px;
+  }
+
+  .mile-sim-point.is-open .mile-sim-point-body {
+    display: block;
+  }
+
+  .mile-sim-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .mile-simulator label {
+    display: block;
+    color: var(--mile-sim-muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .mile-simulator input[type="text"] {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-height: 42px;
+    margin-top: 5px;
+    padding: 8px 10px;
+    border: 1px solid #c8d1dd;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--mile-sim-text);
+    font: inherit;
+    line-height: 1.4;
+    box-shadow: none;
+  }
+
+  .mile-simulator input:focus {
+    border-color: var(--mile-sim-primary);
+    outline: 3px solid rgba(47, 111, 126, 0.14);
+  }
+
+  .mile-simulator input:disabled {
+    background: #edf1f5;
+    color: #667085;
+    opacity: 1;
+  }
+
+  .mile-sim-scenario-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .mile-sim-scenario-card {
+    position: relative;
+    padding: 16px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfb 100%);
+    box-shadow: var(--mile-sim-soft-shadow);
+    overflow: hidden;
+  }
+
+  .mile-sim-scenario-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--mile-sim-primary), #7aa99b, var(--mile-sim-coral));
+  }
+
+  .mile-sim-scenario-title {
+    color: var(--mile-sim-muted);
+    font-size: 0.9rem;
+    font-weight: 900;
+  }
+
+  .mile-sim-scenario-total {
+    margin-top: 8px;
+    color: var(--mile-sim-primary-dark);
+    font-size: 1.9rem;
+    font-weight: 900;
+    line-height: 1.15;
+  }
+
+  .mile-sim-scenario-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .mile-sim-scenario-breakdown div {
+    padding: 10px;
+    border-radius: 6px;
+    background: var(--mile-sim-primary-soft);
+  }
+
+  .mile-sim-scenario-breakdown strong {
+    display: block;
+    color: var(--mile-sim-muted);
+    font-size: 0.85rem;
+  }
+
+  .mile-sim-scenario-breakdown span {
+    display: block;
+    font-weight: 900;
+  }
+
+  .mile-sim-scenario-points {
+    margin-top: 10px;
+    color: var(--mile-sim-muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .mile-sim-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .mile-simulator table {
+    width: 100%;
+    min-width: 1140px;
+    border-collapse: collapse;
+    border-spacing: 0;
+    background: #fff;
+    color: var(--mile-sim-text);
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+
+  .mile-simulator th,
+  .mile-simulator td {
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--mile-sim-line);
+    text-align: right;
+    vertical-align: top;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+
+  .mile-simulator th {
+    background: #eef5f4;
+    color: var(--mile-sim-navy);
+    font-weight: 800;
+  }
+
+  .mile-simulator tbody tr:nth-child(even) {
+    background: #fbfcfb;
+  }
+
+  .mile-simulator tbody tr:hover {
+    background: #f3f8f7;
+  }
+
+  .mile-simulator th:first-child,
+  .mile-simulator td:first-child,
+  .mile-simulator td.mile-sim-note {
+    text-align: left;
+  }
+
+  .mile-sim-outside {
+    color: var(--mile-sim-subtle);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .mile-sim-muted {
+    color: var(--mile-sim-muted);
+  }
+
+  .mile-sim-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 2px 8px;
+    border: 1px solid #c8d1dd;
+    border-radius: 999px;
+    background: #f6f9f8;
+    color: #314252;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .mile-sim-mobile-cards {
+    display: none;
+  }
+
+  .mile-sim-mobile-card {
+    padding: 14px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: var(--mile-sim-soft-shadow);
+  }
+
+  .mile-sim-mobile-card + .mile-sim-mobile-card {
+    margin-top: 12px;
+  }
+
+  .mile-sim-mobile-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .mile-sim-mobile-name {
+    font-weight: 900;
+  }
+
+  .mile-sim-mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .mile-sim-mobile-grid div {
+    padding: 9px;
+    border: 1px solid var(--mile-sim-line);
+    border-radius: 6px;
+    background: #fbfcfb;
+  }
+
+  .mile-sim-mobile-grid strong {
+    display: block;
+    color: var(--mile-sim-muted);
+    font-size: 0.78rem;
+  }
+
+  .mile-sim-mobile-grid span {
+    display: block;
+    font-weight: 900;
+  }
+
+  .mile-sim-mobile-outside {
+    margin-top: 10px;
+    color: var(--mile-sim-subtle);
+    font-size: 0.86rem;
+  }
+
+  .mile-sim-route-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mile-sim-route-list li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--mile-sim-line);
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  .mile-sim-route-list li::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    margin-top: 0.7em;
+    border-radius: 50%;
+    background: var(--mile-sim-primary);
+  }
+
+  .mile-sim-route-name {
+    font-weight: 800;
+  }
+
+  .mile-sim-route-value {
+    color: var(--mile-sim-good);
+    font-weight: 900;
+    text-align: right;
+  }
+
+  .mile-sim-best-total {
+    margin-top: 18px;
+    padding: 16px;
+    border: 1px solid #b9d7cc;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #edf8f4, #ffffff);
+  }
+
+  .mile-sim-best-total span {
+    display: block;
+    color: var(--mile-sim-good);
+    font-size: 2.1rem;
+    font-weight: 900;
+    line-height: 1.15;
+  }
+
+  .mile-sim-notice {
+    margin-top: 24px;
+    padding: 16px;
+    border-left: 4px solid var(--mile-sim-primary);
+    background: #eef5f4;
+    color: #314252;
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 860px) {
+    .mile-sim-input-grid,
+    .mile-sim-scenario-grid,
+    .mile-sim-control-panel,
+    .mile-sim-route-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .mile-simulator {
+      max-width: 100%;
+      padding-top: 20px;
+    }
+
+    .mile-sim-section {
+      padding: 16px;
+    }
+
+    .mile-sim-section-head {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .mile-sim-button,
+    .mile-sim-small-button {
+      width: 100%;
+    }
+
+    .mile-sim-segment,
+    .mile-sim-field-row,
+    .mile-sim-scenario-breakdown {
+      grid-template-columns: 1fr;
+    }
+
+    .mile-sim-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .mile-sim-table-wrap {
+      display: none;
+    }
+
+    .mile-sim-mobile-cards {
+      display: block;
+    }
+
+    .mile-sim-scenario-total,
+    .mile-sim-best-total span {
+      font-size: 1.65rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="mile-simulator" data-mile-simulator>
+  <div class="mile-sim-intro">
+    <p class="mile-sim-lead">楽天ポイント、Vポイント、Pontaなど、日常で貯まったポイントがどれくらい旅の選択肢に変わるかを見える化します。JAL・ANAマイルへの通常レート、キャンペーン、特殊ルートもまとめて比較できます。</p>
+  </div>
+
+  <div class="mile-sim-js-error" data-mile-sim-js-error hidden>計算機の読み込みに失敗しました。ページを再読み込みしてください。</div>
+
+  <section class="mile-sim-section">
+    <div class="mile-sim-section-head">
+      <div class="mile-sim-section-title no-toc" role="heading" aria-level="2" data-toc-skip>入力エリア</div>
+      <button class="mile-sim-button" type="button" data-mile-sim-reset>リセット</button>
+    </div>
+    <div class="mile-sim-restore-message" data-mile-sim-restore-message aria-live="polite"></div>
+
+    <div class="mile-sim-actions">
+      <button class="mile-sim-small-button" type="button" data-mile-sim-open-all>すべて開く</button>
+      <button class="mile-sim-small-button" type="button" data-mile-sim-close-all>すべて閉じる</button>
+      <button class="mile-sim-small-button" type="button" data-mile-sim-open-filled>入力ありだけ開く</button>
+    </div>
+
+    <div class="mile-sim-input-grid" data-mile-sim-input-area>
+      <div class="mile-sim-point is-open" data-mile-sim-point data-point-id="rakuten" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="true">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">楽天ポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">閉じる</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point is-open" data-mile-sim-point data-point-id="dpoint" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="true">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">dポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">閉じる</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point is-open" data-mile-sim-point data-point-id="vpoint" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="true">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">Vポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">閉じる</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point is-open" data-mile-sim-point data-point-id="ponta" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="true">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">Ponta</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">閉じる</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="waon" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">WAON POINT</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" value="設定なし" disabled data-mile-sim-limited-disabled></label></div></div>
+      </div>
+
+      <div class="mile-sim-point is-open" data-mile-sim-point data-point-id="paypay" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="true">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">PayPayポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">閉じる</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="nanaco" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">nanacoポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="recruit" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">リクルートポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-limited></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="saison" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">永久不滅ポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" value="設定なし" disabled data-mile-sim-limited-disabled></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="epos" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">エポスポイント</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0 / 期間限定 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" value="設定なし" disabled data-mile-sim-limited-disabled></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="moppy" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">モッピー</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" value="設定なし" disabled data-mile-sim-limited-disabled></label></div></div>
+      </div>
+
+      <div class="mile-sim-point" data-mile-sim-point data-point-id="hapitas" draggable="true">
+        <button class="mile-sim-point-summary" type="button" data-mile-sim-point-toggle aria-expanded="false">
+          <span class="mile-sim-point-title"><span class="mile-sim-point-name">ハピタス</span><span class="mile-sim-point-value-summary" data-mile-sim-point-summary>通常 0</span></span><span class="mile-sim-point-actions"><span class="mile-sim-drag-handle" data-mile-sim-drag-handle>移動</span><span class="mile-sim-accordion-toggle">開く</span></span>
+        </button>
+        <div class="mile-sim-point-body"><div class="mile-sim-field-row"><label>通常ポイント数<input type="text" inputmode="numeric" pattern="[0-9]*" value="0" data-mile-sim-normal></label><label>期間限定ポイント数<input type="text" value="設定なし" disabled data-mile-sim-limited-disabled></label></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mile-sim-section mile-sim-condition-section" data-mile-sim-condition-section>
+    <div class="mile-sim-section-head mile-sim-condition-head">
+      <button class="mile-sim-section-title mile-sim-condition-toggle" type="button" data-mile-sim-condition-toggle aria-expanded="true">
+        <span>集計条件</span>
+        <span class="mile-sim-accordion-toggle" data-mile-sim-condition-label>閉じる</span>
+      </button>
+    </div>
+    <div class="mile-sim-condition-body" data-mile-sim-condition-body>
+      <p class="mile-sim-section-lead">どのマイルに寄せて集計するか、キャンペーン・特殊ルートを考慮するかを設定できます。</p>
+      <div class="mile-sim-control-panel">
+        <div>
+          <div class="mile-sim-control-title">マイル交換先</div>
+          <div class="mile-sim-segment" role="radiogroup" aria-label="マイル交換先">
+            <label><input type="radio" name="mile-sim-target-mode" value="both" checked data-mile-sim-target-mode><span>JAL・ANA両方</span></label>
+            <label><input type="radio" name="mile-sim-target-mode" value="jal" data-mile-sim-target-mode><span>JALのみ</span></label>
+            <label><input type="radio" name="mile-sim-target-mode" value="ana" data-mile-sim-target-mode><span>ANAのみ</span></label>
+          </div>
+        </div>
+        <div>
+          <div class="mile-sim-control-title">優先方針</div>
+          <div class="mile-sim-segment" role="radiogroup" aria-label="優先方針">
+            <label><input type="radio" name="mile-sim-priority-mode" value="efficiency" checked data-mile-sim-priority-mode><span>効率優先</span></label>
+            <label><input type="radio" name="mile-sim-priority-mode" value="jal" data-mile-sim-priority-mode><span>JAL優先</span></label>
+            <label><input type="radio" name="mile-sim-priority-mode" value="ana" data-mile-sim-priority-mode><span>ANA優先</span></label>
+          </div>
+          <p class="mile-sim-control-note">JAL・ANA両方を選んだときの集計先を調整します。</p>
+        </div>
+        <div>
+          <div class="mile-sim-control-title">ANA特殊ルート条件</div>
+          <label class="mile-sim-checkbox">
+            <input type="checkbox" data-mile-sim-mizuho>
+            <span>みずほANAマイレージルートを利用する</span>
+          </label>
+          <p class="mile-sim-control-note">ANA特殊ルート70%の計算に使用します。未選択時は通常ルートで表示します。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mile-sim-section">
+    <div class="mile-sim-section-title no-toc" role="heading" aria-level="2" data-toc-skip>計算結果サマリー</div>
+    <div data-mile-sim-summary-area>
+      <p class="mile-sim-control-note">入力値をもとに自動計算します。</p>
+    </div>
+  </section>
+
+  <section class="mile-sim-section">
+    <div class="mile-sim-section-title no-toc" role="heading" aria-level="2" data-toc-skip>ポイント別詳細表</div>
+    <div class="mile-sim-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ポイント名</th>
+            <th>優遇</th>
+            <th>通常ポイント</th>
+            <th>期間限定ポイント</th>
+            <th class="mile-sim-route-jal">JAL通常</th>
+            <th class="mile-sim-route-jal">JALキャンペーン</th>
+            <th class="mile-sim-route-ana">ANA通常</th>
+            <th class="mile-sim-route-ana">ANA特殊ルート</th>
+            <th>変換対象外</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+        <tbody data-mile-sim-detail-body>
+          <tr><td colspan="10">入力値をもとに自動計算します。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mile-sim-mobile-cards" data-mile-sim-mobile-cards></div>
+  </section>
+
+  <section class="mile-sim-section">
+    <div class="mile-sim-section-title no-toc" role="heading" aria-level="2" data-toc-skip>最適ルート一覧</div>
+    <ul class="mile-sim-route-list" data-mile-sim-best-route-list></ul>
+    <div class="mile-sim-best-total">
+      最適ルートの合計
+      <span data-mile-sim-best-route-total>0マイル</span>
+    </div>
+  </section>
+
+  <p class="mile-sim-notice">この計算機は、ポイントをマイルに交換した場合の目安を確認するためのシミュレーターです。<br>実際の交換可否、交換単位、交換レート、キャンペーン条件、交換上限、交換にかかる日数などは、ポイントサービス・航空会社・交換ルートごとに異なります。<br>キャンペーンレートや特殊ルートは常設ではない場合がありますので、実際に交換する前に、各公式サイトの最新情報を必ずご確認ください。</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  function bootMileSimulators() {
+    document.querySelectorAll("[data-mile-simulator]").forEach(function (root, index) {
+      try {
+        initMileSimulator(root, index);
+      } catch (error) {
+        var errorBox = root.querySelector("[data-mile-sim-js-error]");
+        if (errorBox) errorBox.hidden = false;
+        console.error("mile simulator init error", error);
+      }
+    });
+    setupIframeHeightNotifier();
+  }
+
+  function setupIframeHeightNotifier() {
+    var lastHeight = 0;
+    var messageType = "mile-simulator-height";
+
+    function getPageHeight() {
+      return Math.max(
+        document.documentElement.scrollHeight,
+        document.body ? document.body.scrollHeight : 0,
+        document.documentElement.offsetHeight,
+        document.body ? document.body.offsetHeight : 0
+      );
+    }
+
+    function notifyHeight() {
+      var height = getPageHeight();
+      if (Math.abs(height - lastHeight) < 2) return;
+      lastHeight = height;
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: messageType, height: height }, "*");
+      }
+    }
+
+    notifyHeight();
+    window.addEventListener("load", notifyHeight);
+    window.addEventListener("resize", notifyHeight);
+
+    if ("ResizeObserver" in window) {
+      var resizeObserver = new ResizeObserver(notifyHeight);
+      resizeObserver.observe(document.documentElement);
+      if (document.body) resizeObserver.observe(document.body);
+    }
+
+    if ("MutationObserver" in window && document.body) {
+      var mutationObserver = new MutationObserver(notifyHeight);
+      mutationObserver.observe(document.body, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    }
+
+    setTimeout(notifyHeight, 250);
+    setTimeout(notifyHeight, 1000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootMileSimulators);
+  } else {
+    bootMileSimulators();
+  }
+
+  function initMileSimulator(root, instanceIndex) {
+    var pointRules = [
+      { id: "rakuten", name: "楽天ポイント", hasLimitedPoint: true, jal: { normalRate: 0.5, campaignRate: 0.625, limitedAllowed: false }, ana: { normalRate: 0.5, specialRate: null, limitedAllowed: false } },
+      { id: "dpoint", name: "dポイント", hasLimitedPoint: true, jal: { normalRate: 0.5, campaignRate: 0.6, limitedAllowed: false }, ana: null },
+      { id: "vpoint", name: "Vポイント", hasLimitedPoint: true, jal: null, ana: { normalRate: 0.5, specialRate: 0.7, limitedAllowed: true, specialRequiresMizuho: true } },
+      { id: "ponta", name: "Ponta", hasLimitedPoint: true, jal: { normalRate: 0.5, campaignRate: 0.625, limitedAllowed: false }, ana: null },
+      { id: "waon", name: "WAON POINT", hasLimitedPoint: false, jal: null, ana: { normalRate: 0.5, specialRate: 0.7, limitedAllowed: false, specialRequiresMizuho: true } },
+      { id: "paypay", name: "PayPayポイント", hasLimitedPoint: true, jal: null, ana: { normalRate: 0.5, specialRate: 0.7, limitedAllowed: false, specialRequiresMizuho: true } },
+      { id: "nanaco", name: "nanacoポイント", hasLimitedPoint: true, jal: null, ana: { normalRate: 0.5, specialRate: null, limitedAllowed: false } },
+      { id: "recruit", name: "リクルートポイント", hasLimitedPoint: true, jal: { normalRate: 0.5, campaignRate: null, limitedAllowed: false }, ana: null },
+      { id: "saison", name: "永久不滅ポイント", hasLimitedPoint: false, jal: { normalRate: 0.5, campaignRate: 0.6, limitedAllowed: false }, ana: { normalRate: 0.6, specialRate: 0.7, limitedAllowed: false, specialRequiresMizuho: true } },
+      { id: "epos", name: "エポスポイント", hasLimitedPoint: false, jal: { normalRate: 0.5, campaignRate: null, limitedAllowed: false }, ana: { normalRate: 0.5, specialRate: 0.7, limitedAllowed: false, specialRequiresMizuho: true } },
+      { id: "moppy", name: "モッピー", hasLimitedPoint: false, jal: { normalRate: 0.5, campaignRate: 0.8, limitedAllowed: false }, ana: { normalRate: 0.5, specialRate: 0.7, limitedAllowed: false, specialRequiresMizuho: true } },
+      { id: "hapitas", name: "ハピタス", hasLimitedPoint: false, jal: { normalRate: 0.5, campaignRate: 0.625, limitedAllowed: false }, ana: { normalRate: 0.5, specialRate: 0.7, limitedAllowed: false, specialRequiresMizuho: true } }
+    ];
+
+    var rateLabels = { 0.5: "50%", 0.6: "60%", 0.625: "62.5%", 0.7: "70%", 0.8: "80%" };
+    var storageSuffix = root.getAttribute("data-mile-simulator-key") || String(instanceIndex || 0);
+    var inputStorageKey = "mileSimulatorInputs_" + storageSuffix;
+    var uiStorageKey = "mileSimulatorUiState_" + storageSuffix;
+    var inputArea = root.querySelector("[data-mile-sim-input-area]");
+    var summaryArea = root.querySelector("[data-mile-sim-summary-area]");
+    var detailBody = root.querySelector("[data-mile-sim-detail-body]");
+    var mobileCards = root.querySelector("[data-mile-sim-mobile-cards]");
+    var bestRouteList = root.querySelector("[data-mile-sim-best-route-list]");
+    var bestRouteTotal = root.querySelector("[data-mile-sim-best-route-total]");
+    var restoreMessage = root.querySelector("[data-mile-sim-restore-message]");
+    var resetButton = root.querySelector("[data-mile-sim-reset]");
+    var openAllButton = root.querySelector("[data-mile-sim-open-all]");
+    var closeAllButton = root.querySelector("[data-mile-sim-close-all]");
+    var openFilledButton = root.querySelector("[data-mile-sim-open-filled]");
+    var conditionSection = root.querySelector("[data-mile-sim-condition-section]");
+    var conditionToggle = root.querySelector("[data-mile-sim-condition-toggle]");
+    var conditionBody = root.querySelector("[data-mile-sim-condition-body]");
+    var conditionLabel = root.querySelector("[data-mile-sim-condition-label]");
+    var targetModeInputs = root.querySelectorAll("[data-mile-sim-target-mode]");
+    var priorityModeInputs = root.querySelectorAll("[data-mile-sim-priority-mode]");
+    var mizuhoInput = root.querySelector("[data-mile-sim-mizuho]");
+    var activeDragPointId = null;
+    var latestCalculation = null;
+    var uiState = {
+      targetMode: "both",
+      priorityMode: "efficiency",
+      hasMizuhoCard: false,
+      conditionOpen: true,
+      pointOrder: pointRules.map(function (rule) { return rule.id; }),
+      openPoints: { rakuten: true, dpoint: true, vpoint: true, ponta: true, paypay: true }
+    };
+
+    var hadSavedUiState = loadUiStateFromStorage();
+    targetModeInputs.forEach(function (input) { input.name = "mile-sim-target-mode-" + storageSuffix; });
+    priorityModeInputs.forEach(function (input) { input.name = "mile-sim-priority-mode-" + storageSuffix; });
+    syncControlsFromState();
+    applyConditionStateToDom();
+    applyPointOrderToDom();
+    var hadSavedInputs = loadInputsFromStorage();
+    if (hadSavedUiState) applyOpenStatesToDom();
+    else openFilledPoints(false);
+    if (hadSavedInputs) {
+      restoreMessage.textContent = "前回入力した値を復元しました";
+    }
+    bindEvents();
+    renderResults();
+
+    function formatNumber(value) {
+      return Math.floor(value || 0).toLocaleString("ja-JP");
+    }
+
+    function formatMiles(value) {
+      return formatNumber(value) + "マイル";
+    }
+
+    function normalizeDisplayValue(value, allowEmpty) {
+      var digits = String(value || "").replace(/[^\d]/g, "");
+      digits = digits.replace(/^0+(?=\d)/, "");
+      if (digits === "") return allowEmpty ? "" : "0";
+      return digits;
+    }
+
+    function normalizeInputValue(value) {
+      var numberValue = parseInt(normalizeDisplayValue(value, false), 10);
+      return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0;
+    }
+
+    function getRateLabel(rate) {
+      return rateLabels[rate] || (rate * 100) + "%";
+    }
+
+    function getPointBlock(id) {
+      return root.querySelector('[data-mile-sim-point][data-point-id="' + id + '"]');
+    }
+
+    function getInputValue(id, type) {
+      var block = getPointBlock(id);
+      if (!block) return 0;
+      var input = block.querySelector(type === "normal" ? "[data-mile-sim-normal]" : "[data-mile-sim-limited]");
+      return input ? normalizeInputValue(input.value) : 0;
+    }
+
+    function getAllInputValues() {
+      return getOrderedPointRules().reduce(function (values, rule) {
+        values[rule.id] = {
+          normal: getInputValue(rule.id, "normal"),
+          limited: rule.hasLimitedPoint ? getInputValue(rule.id, "limited") : 0
+        };
+        return values;
+      }, {});
+    }
+
+    function saveInputsToStorage() {
+      localStorage.setItem(inputStorageKey, JSON.stringify(getAllInputValues()));
+    }
+
+    function loadInputsFromStorage() {
+      var savedValue = localStorage.getItem(inputStorageKey);
+      if (!savedValue) return false;
+      var savedInputs = JSON.parse(savedValue);
+      pointRules.forEach(function (rule) {
+        var block = getPointBlock(rule.id);
+        if (!block) return;
+        var savedRule = savedInputs[rule.id] || {};
+        var normalInput = block.querySelector("[data-mile-sim-normal]");
+        var limitedInput = block.querySelector("[data-mile-sim-limited]");
+        if (normalInput) normalInput.value = String(normalizeInputValue(savedRule.normal));
+        if (limitedInput) limitedInput.value = String(normalizeInputValue(savedRule.limited));
+      });
+      return true;
+    }
+
+    function saveUiStateToStorage() {
+      localStorage.setItem(uiStorageKey, JSON.stringify(uiState));
+    }
+
+    function loadUiStateFromStorage() {
+      var savedValue = localStorage.getItem(uiStorageKey);
+      if (!savedValue) return false;
+      var savedState = JSON.parse(savedValue);
+      uiState = Object.assign({}, uiState, savedState, {
+        openPoints: Object.assign({}, uiState.openPoints, savedState.openPoints || {})
+      });
+      return true;
+    }
+
+    function getOrderedPointRules() {
+      var ruleMap = new Map(pointRules.map(function (rule) { return [rule.id, rule]; }));
+      var savedOrder = Array.isArray(uiState.pointOrder) ? uiState.pointOrder : [];
+      var orderedRules = savedOrder.map(function (id) { return ruleMap.get(id); }).filter(Boolean);
+      var missingRules = pointRules.filter(function (rule) { return savedOrder.indexOf(rule.id) === -1; });
+      return orderedRules.concat(missingRules);
+    }
+
+    function applyPointOrderToDom() {
+      getOrderedPointRules().forEach(function (rule) {
+        var block = getPointBlock(rule.id);
+        if (block) inputArea.appendChild(block);
+      });
+    }
+
+    function saveCurrentPointOrder() {
+      uiState.pointOrder = Array.from(inputArea.querySelectorAll("[data-mile-sim-point]")).map(function (block) {
+        return block.getAttribute("data-point-id");
+      }).filter(Boolean);
+      saveUiStateToStorage();
+    }
+
+    function applyOpenStatesToDom() {
+      getOrderedPointRules().forEach(function (rule) {
+        setPointOpen(rule.id, uiState.openPoints[rule.id] === true, false);
+      });
+    }
+
+    function applyConditionStateToDom() {
+      if (!conditionBody || !conditionToggle) return;
+      var isOpen = uiState.conditionOpen !== false;
+      conditionBody.classList.toggle("is-collapsed", !isOpen);
+      conditionToggle.setAttribute("aria-expanded", String(isOpen));
+      if (conditionLabel) conditionLabel.textContent = isOpen ? "閉じる" : "開く";
+    }
+
+    function setConditionOpen(isOpen, shouldSave) {
+      uiState.conditionOpen = isOpen;
+      applyConditionStateToDom();
+      if (shouldSave !== false) saveUiStateToStorage();
+    }
+
+    function openFilledPoints(shouldSave) {
+      getOrderedPointRules().forEach(function (rule) {
+        var totalPoints = getInputValue(rule.id, "normal") + (rule.hasLimitedPoint ? getInputValue(rule.id, "limited") : 0);
+        setPointOpen(rule.id, totalPoints > 0, false);
+      });
+      if (shouldSave !== false) saveUiStateToStorage();
+    }
+
+    function setPointOpen(pointId, isOpen, shouldSave) {
+      uiState.openPoints[pointId] = isOpen;
+      var block = getPointBlock(pointId);
+      if (!block) return;
+      var button = block.querySelector("[data-mile-sim-point-toggle]");
+      var toggle = block.querySelector(".mile-sim-accordion-toggle");
+      block.classList.toggle("is-open", isOpen);
+      if (button) button.setAttribute("aria-expanded", String(isOpen));
+      if (toggle) toggle.textContent = isOpen ? "閉じる" : "開く";
+      if (shouldSave !== false) saveUiStateToStorage();
+    }
+
+    function syncControlsFromState() {
+      targetModeInputs.forEach(function (input) { input.checked = input.value === getTargetMode(); });
+      priorityModeInputs.forEach(function (input) { input.checked = input.value === getPriorityMode(); });
+      mizuhoInput.checked = Boolean(uiState.hasMizuhoCard);
+    }
+
+    function getTargetMode() {
+      return uiState.targetMode || "both";
+    }
+
+    function getPriorityMode() {
+      return uiState.priorityMode || "efficiency";
+    }
+
+    function routeAllowedByTarget(routeName) {
+      var targetMode = getTargetMode();
+      return targetMode === "both" || targetMode === routeName;
+    }
+
+    function getConvertiblePoints(route, normalPoints, limitedPoints) {
+      if (!route) return 0;
+      return normalPoints + (route.limitedAllowed ? limitedPoints : 0);
+    }
+
+    function calculateMiles(points, rate) {
+      if (rate === null || rate === undefined) return null;
+      return Math.floor(points * rate + 1e-9);
+    }
+
+    function getRouteResult(routeName, route, normalPoints, limitedPoints) {
+      if (!route || !routeAllowedByTarget(routeName)) {
+        return { routeName: routeName, supported: false, normalMiles: null, boostedMiles: null, normalLabel: "対象外", boostedLabel: "対象外", boostedNote: "" };
+      }
+      var convertiblePoints = getConvertiblePoints(route, normalPoints, limitedPoints);
+      var boostedRateKey = routeName === "jal" ? "campaignRate" : "specialRate";
+      var boostedName = routeName === "jal" ? "キャンペーン" : "特殊ルート";
+      var noBoostText = routeName === "jal" ? "キャンペーンなし" : "特殊ルートなし";
+      var needsMizuho = routeName === "ana" && route.specialRequiresMizuho && !uiState.hasMizuhoCard;
+      var effectiveBoostedRate = needsMizuho ? null : route[boostedRateKey];
+      var boostedRate = effectiveBoostedRate === null ? route.normalRate : effectiveBoostedRate;
+      return {
+        routeName: routeName,
+        supported: true,
+        normalMiles: calculateMiles(convertiblePoints, route.normalRate),
+        boostedMiles: calculateMiles(convertiblePoints, boostedRate),
+        normalLabel: routeName.toUpperCase() + "通常 " + getRateLabel(route.normalRate),
+        boostedLabel: effectiveBoostedRate === null ? routeName.toUpperCase() + "通常 " + getRateLabel(route.normalRate) : routeName.toUpperCase() + boostedName + " " + getRateLabel(effectiveBoostedRate),
+        boostedNote: needsMizuho ? "みずほANAルート未選択" : (effectiveBoostedRate === null ? noBoostText : "")
+      };
+    }
+
+    function getBestRouteForScenario(row, options) {
+      var candidates = [
+        { route: "jal", label: options.useJalCampaign ? row.jal.boostedLabel : row.jal.normalLabel, miles: options.useJalCampaign ? row.jal.boostedMiles : row.jal.normalMiles, supported: row.jal.supported },
+        { route: "ana", label: options.useAnaSpecial ? row.ana.boostedLabel : row.ana.normalLabel, miles: options.useAnaSpecial ? row.ana.boostedMiles : row.ana.normalMiles, supported: row.ana.supported }
+      ].filter(function (candidate) { return candidate.supported; });
+      if (candidates.length === 0) return { route: "none", label: "対象外", miles: 0 };
+      var priorityMode = getTargetMode() === "both" ? getPriorityMode() : "efficiency";
+      if (priorityMode === "jal") return candidates.find(function (c) { return c.route === "jal"; }) || candidates.find(function (c) { return c.route === "ana"; });
+      if (priorityMode === "ana") return candidates.find(function (c) { return c.route === "ana"; }) || candidates.find(function (c) { return c.route === "jal"; });
+      return candidates.reduce(function (best, current) { return current.miles > best.miles ? current : best; });
+    }
+
+    function getMostEfficientRouteForScenario(row, options) {
+      var originalPriorityMode = uiState.priorityMode;
+      uiState.priorityMode = "efficiency";
+      var best = getBestRouteForScenario(row, options);
+      uiState.priorityMode = originalPriorityMode;
+      return best;
+    }
+
+    function getPreferenceLabel(row) {
+      if (getTargetMode() === "jal") return row.jal.supported ? "JAL対象" : "JAL交換不可";
+      if (getTargetMode() === "ana") return row.ana.supported ? "ANA対象" : "ANA交換不可";
+      var best = getMostEfficientRouteForScenario(row, { useJalCampaign: true, useAnaSpecial: true });
+      if (best.route === "jal") return "JAL優遇";
+      if (best.route === "ana") return "ANA優遇";
+      return "対象外";
+    }
+
+    function aggregateScenario(rows, scenario) {
+      return rows.reduce(function (acc, row) {
+        var best = getBestRouteForScenario(row, scenario);
+        acc.total += best.miles;
+        if (best.route === "jal") {
+          acc.jalMiles += best.miles;
+          acc.jalPoints.push(row.rule.name);
+        } else if (best.route === "ana") {
+          acc.anaMiles += best.miles;
+          acc.anaPoints.push(row.rule.name);
+        }
+        return acc;
+      }, { id: scenario.id, label: scenario.label, total: 0, jalMiles: 0, anaMiles: 0, jalPoints: [], anaPoints: [] });
+    }
+
+    function calculateAll() {
+      var rows = getOrderedPointRules().map(function (rule) {
+        var normalPoints = getInputValue(rule.id, "normal");
+        var limitedPoints = rule.hasLimitedPoint ? getInputValue(rule.id, "limited") : 0;
+        var jal = getRouteResult("jal", rule.jal, normalPoints, limitedPoints);
+        var ana = getRouteResult("ana", rule.ana, normalPoints, limitedPoints);
+        var limitedConvertibleSomewhere = limitedPoints > 0 && ((routeAllowedByTarget("jal") && rule.jal && rule.jal.limitedAllowed) || (routeAllowedByTarget("ana") && rule.ana && rule.ana.limitedAllowed));
+        var outsidePoints = limitedPoints > 0 && !limitedConvertibleSomewhere ? limitedPoints : 0;
+        var routeRow = { jal: jal, ana: ana };
+        var bestNormal = getBestRouteForScenario(routeRow, { useJalCampaign: false, useAnaSpecial: false });
+        var bestBoosted = getBestRouteForScenario(routeRow, { useJalCampaign: true, useAnaSpecial: true });
+        return { rule: rule, normalPoints: normalPoints, limitedPoints: limitedPoints, jal: jal, ana: ana, outsidePoints: outsidePoints, preferenceLabel: getPreferenceLabel(routeRow), bestNormal: bestNormal, bestBoosted: bestBoosted };
+      });
+      var scenarioDefinitions = getScenarioDefinitions();
+      var scenarios = scenarioDefinitions.map(function (scenario) { return aggregateScenario(rows, scenario); });
+      var totals = rows.reduce(function (acc, row) {
+        acc.bestBoosted += row.bestBoosted.miles || 0;
+        acc.outside += row.outsidePoints;
+        return acc;
+      }, { bestBoosted: 0, outside: 0 });
+      return { rows: rows, totals: totals, scenarios: scenarios };
+    }
+
+    function getScenarioDefinitions() {
+      var targetMode = getTargetMode();
+      if (targetMode === "jal") return [
+        { id: "jalNormalOnly", label: "JAL通常交換", useJalCampaign: false, useAnaSpecial: false },
+        { id: "jalCampaignOnly", label: "JALキャンペーン時", useJalCampaign: true, useAnaSpecial: false }
+      ];
+      if (targetMode === "ana") return [
+        { id: "anaNormalOnly", label: "ANA通常交換", useJalCampaign: false, useAnaSpecial: false }
+      ].concat(uiState.hasMizuhoCard ? [{ id: "anaSpecialOnly", label: "ANA特殊ルート時", useJalCampaign: false, useAnaSpecial: true }] : []);
+      var scenarios = [
+        { id: "normalOptimal", label: "通常レート最適", useJalCampaign: false, useAnaSpecial: false },
+        { id: "jalCampaign", label: "JALキャンペーン考慮", useJalCampaign: true, useAnaSpecial: false }
+      ];
+      if (uiState.hasMizuhoCard) {
+        scenarios.splice(1, 0, { id: "anaSpecial", label: "ANA特殊ルート考慮", useJalCampaign: false, useAnaSpecial: true });
+        scenarios.push({ id: "bothBoosted", label: "JALキャンペーン＋ANA特殊ルート考慮", useJalCampaign: true, useAnaSpecial: true });
+      }
+      return scenarios;
+    }
+
+    function formatPointNames(points) {
+      return points.length > 0 ? points.join("、") : "該当なし";
+    }
+
+    function renderScenarioCards(scenarios) {
+      var targetMode = getTargetMode();
+      summaryArea.innerHTML = '<p class="mile-sim-control-note">現在の集計方針：' + (targetMode === "both" ? getPriorityLabel() : "交換先モード優先") + '</p>' +
+        '<div class="mile-sim-scenario-grid">' + scenarios.map(function (scenario) {
+          return '<div class="mile-sim-scenario-card">' +
+            '<div class="mile-sim-scenario-title">' + scenario.label + '</div>' +
+            '<div class="mile-sim-scenario-total">' + formatMiles(scenario.total) + '</div>' +
+            (targetMode === "both" ?
+              '<div class="mile-sim-scenario-breakdown"><div><strong>JAL内訳</strong><span>' + formatMiles(scenario.jalMiles) + '</span></div><div><strong>ANA内訳</strong><span>' + formatMiles(scenario.anaMiles) + '</span></div></div>' :
+              '<div class="mile-sim-scenario-breakdown"><div><strong>' + (targetMode === "jal" ? "JALマイル" : "ANAマイル") + '</strong><span>' + formatMiles(scenario.total) + '</span></div></div>') +
+            '<div class="mile-sim-scenario-points">' + (targetMode === "both" ? 'JAL集計：' + formatPointNames(scenario.jalPoints) + '<br>ANA集計：' + formatPointNames(scenario.anaPoints) : '集計対象：' + formatPointNames(targetMode === "jal" ? scenario.jalPoints : scenario.anaPoints)) + '</div>' +
+            '</div>';
+        }).join("") + '</div>';
+    }
+
+    function getPriorityLabel() {
+      return ({ efficiency: "効率優先", jal: "JAL優先", ana: "ANA優先" })[getPriorityMode()] || "効率優先";
+    }
+
+    function renderMilesCell(result, type) {
+      var miles = type === "normal" ? result.normalMiles : result.boostedMiles;
+      if (!result.supported || miles === null) return '<span class="mile-sim-muted">対象外</span>';
+      return formatMiles(miles);
+    }
+
+    function renderMilesText(result, type) {
+      var miles = type === "normal" ? result.normalMiles : result.boostedMiles;
+      if (!result.supported || miles === null) return "対象外";
+      return formatMiles(miles);
+    }
+
+    function buildNotes(row) {
+      var notes = [];
+      var targetMode = getTargetMode();
+      if (targetMode !== "ana" && !row.jal.supported) notes.push("JAL交換不可");
+      else if (targetMode !== "ana" && row.jal.boostedNote) notes.push(row.jal.boostedNote);
+      if (targetMode !== "jal" && !row.ana.supported) notes.push("ANA交換不可");
+      else if (targetMode !== "jal" && row.ana.boostedNote) notes.push(row.ana.boostedNote);
+      if (row.outsidePoints > 0) notes.push("期間限定ポイントは変換対象外");
+      if (row.rule.id === "vpoint") notes.push("期間限定ポイントもANA側で計算");
+      return notes.join(" / ") || "—";
+    }
+
+    function renderMobileMiles(row) {
+      var targetMode = getTargetMode();
+      var items = [];
+      if (targetMode !== "ana") {
+        items.push('<div><strong>JAL通常</strong><span>' + renderMilesText(row.jal, "normal") + '</span></div>');
+        items.push('<div><strong>JALキャンペーン</strong><span>' + renderMilesText(row.jal, "boosted") + '</span></div>');
+      }
+      if (targetMode !== "jal") {
+        items.push('<div><strong>ANA通常</strong><span>' + renderMilesText(row.ana, "normal") + '</span></div>');
+        items.push('<div><strong>ANA特殊ルート</strong><span>' + renderMilesText(row.ana, "boosted") + '</span></div>');
+      }
+      return items.join("");
+    }
+
+    function updatePointSummaries(rows) {
+      rows.forEach(function (row) {
+        var block = getPointBlock(row.rule.id);
+        if (!block) return;
+        var summary = block.querySelector("[data-mile-sim-point-summary]");
+        var totalPoints = row.normalPoints + (row.rule.hasLimitedPoint ? row.limitedPoints : 0);
+        block.classList.toggle("is-empty", totalPoints === 0);
+        if (!summary) return;
+        summary.textContent = row.rule.hasLimitedPoint
+          ? "通常 " + formatNumber(row.normalPoints) + " / 期間限定 " + formatNumber(row.limitedPoints)
+          : "通常 " + formatNumber(row.normalPoints);
+      });
+    }
+
+    function renderResults() {
+      var calculation = calculateAll();
+      latestCalculation = calculation;
+      updatePointSummaries(calculation.rows);
+      renderScenarioCards(calculation.scenarios);
+      detailBody.innerHTML = calculation.rows.map(function (row) {
+        return '<tr>' +
+          '<td>' + row.rule.name + '</td>' +
+          '<td><span class="mile-sim-badge">' + row.preferenceLabel + '</span></td>' +
+          '<td>' + formatNumber(row.normalPoints) + '</td>' +
+          '<td>' + (row.rule.hasLimitedPoint ? formatNumber(row.limitedPoints) : '<span class="mile-sim-muted">設定なし</span>') + '</td>' +
+          '<td class="mile-sim-route-jal">' + renderMilesCell(row.jal, "normal") + '</td>' +
+          '<td class="mile-sim-route-jal">' + renderMilesCell(row.jal, "boosted") + '</td>' +
+          '<td class="mile-sim-route-ana">' + renderMilesCell(row.ana, "normal") + '</td>' +
+          '<td class="mile-sim-route-ana">' + renderMilesCell(row.ana, "boosted") + '</td>' +
+          '<td' + (row.outsidePoints > 0 ? ' class="mile-sim-outside"' : "") + '>' + formatNumber(row.outsidePoints) + '</td>' +
+          '<td class="mile-sim-note">' + buildNotes(row) + '</td>' +
+          '</tr>';
+      }).join("");
+      mobileCards.innerHTML = calculation.rows.map(function (row) {
+        return '<div class="mile-sim-mobile-card"><div class="mile-sim-mobile-head"><span class="mile-sim-mobile-name">' + row.rule.name + '</span><span class="mile-sim-badge">' + row.preferenceLabel + '</span></div><div class="mile-sim-mobile-grid">' + renderMobileMiles(row) + '</div><div class="mile-sim-mobile-outside">対象外ポイント：' + formatNumber(row.outsidePoints) + 'ポイント</div></div>';
+      }).join("");
+      bestRouteList.innerHTML = calculation.rows.map(function (row) {
+        return '<li><span class="mile-sim-route-name">' + row.rule.name + '</span><span class="mile-sim-route-value">' + row.bestBoosted.label + ' / ' + formatMiles(row.bestBoosted.miles) + '</span></li>';
+      }).join("");
+      bestRouteTotal.textContent = formatMiles(calculation.totals.bestBoosted);
+      updateRouteVisibility();
+    }
+
+    function updateRouteVisibility() {
+      var targetMode = getTargetMode();
+      root.querySelectorAll(".mile-sim-route-jal").forEach(function (element) { element.hidden = targetMode === "ana"; });
+      root.querySelectorAll(".mile-sim-route-ana").forEach(function (element) { element.hidden = targetMode === "jal"; });
+    }
+
+    function bindEvents() {
+      if (conditionToggle) {
+        conditionToggle.addEventListener("click", function () {
+          setConditionOpen(!(uiState.conditionOpen !== false), true);
+        });
+      }
+      root.querySelectorAll("[data-mile-sim-point-toggle]").forEach(function (button) {
+        button.addEventListener("click", function (event) {
+          if (event.target.closest("[data-mile-sim-drag-handle]")) return;
+          var block = button.closest("[data-mile-sim-point]");
+          setPointOpen(block.getAttribute("data-point-id"), !block.classList.contains("is-open"), true);
+        });
+      });
+      root.querySelectorAll("[data-mile-sim-normal], [data-mile-sim-limited]").forEach(function (input) {
+        input.addEventListener("input", function () {
+          var normalizedValue = normalizeDisplayValue(input.value, true);
+          if (input.value !== normalizedValue) input.value = normalizedValue;
+          saveInputsToStorage();
+          renderResults();
+        });
+        input.addEventListener("blur", function () {
+          var normalizedValue = normalizeDisplayValue(input.value, false);
+          if (input.value !== normalizedValue) input.value = normalizedValue;
+          saveInputsToStorage();
+          renderResults();
+        });
+      });
+      resetButton.addEventListener("click", function () {
+        root.querySelectorAll("[data-mile-sim-normal], [data-mile-sim-limited]").forEach(function (input) { input.value = "0"; });
+        localStorage.removeItem(inputStorageKey);
+        restoreMessage.textContent = "";
+        renderResults();
+      });
+      openAllButton.addEventListener("click", function () {
+        getOrderedPointRules().forEach(function (rule) { setPointOpen(rule.id, true, false); });
+        saveUiStateToStorage();
+      });
+      closeAllButton.addEventListener("click", function () {
+        getOrderedPointRules().forEach(function (rule) { setPointOpen(rule.id, false, false); });
+        saveUiStateToStorage();
+      });
+      if (openFilledButton) {
+        openFilledButton.addEventListener("click", function () {
+          openFilledPoints(true);
+        });
+      }
+      targetModeInputs.forEach(function (input) {
+        input.addEventListener("change", function () {
+          uiState.targetMode = input.value;
+          saveUiStateToStorage();
+          renderResults();
+        });
+      });
+      priorityModeInputs.forEach(function (input) {
+        input.addEventListener("change", function () {
+          uiState.priorityMode = input.value;
+          saveUiStateToStorage();
+          renderResults();
+        });
+      });
+      mizuhoInput.addEventListener("change", function () {
+        uiState.hasMizuhoCard = mizuhoInput.checked;
+        saveUiStateToStorage();
+        renderResults();
+      });
+      bindDragAndDrop();
+    }
+
+    function getDragAfterElement(container, x, y) {
+      return Array.from(container.querySelectorAll("[data-mile-sim-point]:not(.is-dragging)")).reduce(function (closest, child) {
+        var box = child.getBoundingClientRect();
+        var offsetY = y - box.top - box.height / 2;
+        var offsetX = x - box.left - box.width / 2;
+        var distance = Math.abs(offsetY) > box.height / 2 ? offsetY : offsetX;
+        return distance < 0 && distance > closest.offset ? { offset: distance, element: child } : closest;
+      }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+    }
+
+    function bindDragAndDrop() {
+      root.querySelectorAll("[data-mile-sim-drag-handle]").forEach(function (handle) {
+        handle.addEventListener("click", function (event) { event.stopPropagation(); });
+        handle.addEventListener("mousedown", function () {
+          var block = handle.closest("[data-mile-sim-point]");
+          activeDragPointId = block ? block.getAttribute("data-point-id") : null;
+        });
+        handle.addEventListener("touchstart", function () {
+          var block = handle.closest("[data-mile-sim-point]");
+          activeDragPointId = block ? block.getAttribute("data-point-id") : null;
+        }, { passive: true });
+      });
+      inputArea.querySelectorAll("[data-mile-sim-point]").forEach(function (block) {
+        block.addEventListener("dragstart", function (event) {
+          if (activeDragPointId !== block.getAttribute("data-point-id")) {
+            event.preventDefault();
+            return;
+          }
+          block.classList.add("is-dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", block.getAttribute("data-point-id"));
+        });
+        block.addEventListener("dragend", function () {
+          block.classList.remove("is-dragging");
+          inputArea.querySelectorAll("[data-mile-sim-point]").forEach(function (item) { item.classList.remove("is-drag-over"); });
+          activeDragPointId = null;
+          saveCurrentPointOrder();
+          renderResults();
+        });
+      });
+      inputArea.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        var draggingBlock = inputArea.querySelector(".is-dragging");
+        if (!draggingBlock) return;
+        var afterElement = getDragAfterElement(inputArea, event.clientX, event.clientY);
+        inputArea.querySelectorAll("[data-mile-sim-point]").forEach(function (item) { item.classList.remove("is-drag-over"); });
+        if (afterElement === null) inputArea.appendChild(draggingBlock);
+        else {
+          afterElement.classList.add("is-drag-over");
+          inputArea.insertBefore(draggingBlock, afterElement);
+        }
+      });
+      inputArea.addEventListener("drop", function (event) {
+        event.preventDefault();
+        saveCurrentPointOrder();
+        renderResults();
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>
