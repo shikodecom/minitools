@@ -1289,30 +1289,22 @@
       };
     }
 
-    function getBestRouteForScenario(row, options) {
+    function getBestRouteForScenario(row, options, priorityMode) {
       var candidates = [
         { route: "jal", label: options.useJalCampaign ? row.jal.boostedLabel : row.jal.normalLabel, miles: options.useJalCampaign ? row.jal.boostedMiles : row.jal.normalMiles, supported: row.jal.supported },
         { route: "ana", label: options.useAnaSpecial ? row.ana.boostedLabel : row.ana.normalLabel, miles: options.useAnaSpecial ? row.ana.boostedMiles : row.ana.normalMiles, supported: row.ana.supported }
       ].filter(function (candidate) { return candidate.supported; });
       if (candidates.length === 0) return { route: "none", label: "対象外", miles: 0 };
-      var priorityMode = getTargetMode() === "both" ? getPriorityMode() : "efficiency";
+      priorityMode = priorityMode || (getTargetMode() === "both" ? getPriorityMode() : "efficiency");
       if (priorityMode === "jal") return candidates.find(function (c) { return c.route === "jal"; }) || candidates.find(function (c) { return c.route === "ana"; });
       if (priorityMode === "ana") return candidates.find(function (c) { return c.route === "ana"; }) || candidates.find(function (c) { return c.route === "jal"; });
       return candidates.reduce(function (best, current) { return current.miles > best.miles ? current : best; });
     }
 
-    function getMostEfficientRouteForScenario(row, options) {
-      var originalPriorityMode = uiState.priorityMode;
-      uiState.priorityMode = "efficiency";
-      var best = getBestRouteForScenario(row, options);
-      uiState.priorityMode = originalPriorityMode;
-      return best;
-    }
-
     function getPreferenceLabel(row) {
       if (getTargetMode() === "jal") return row.jal.supported ? "JAL対象" : "JAL交換不可";
       if (getTargetMode() === "ana") return row.ana.supported ? "ANA対象" : "ANA交換不可";
-      var best = getMostEfficientRouteForScenario(row, { useJalCampaign: true, useAnaSpecial: true });
+      var best = getBestRouteForScenario(row, { useJalCampaign: true, useAnaSpecial: true }, "efficiency");
       if (best.route === "jal") return "JAL優遇";
       if (best.route === "ana") return "ANA優遇";
       return "対象外";

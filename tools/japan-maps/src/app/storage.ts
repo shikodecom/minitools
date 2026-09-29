@@ -1,13 +1,14 @@
-import type { AppState, PrefectureId } from '../types';
+import { PREFECTURES } from '../data/prefectures';
+import type { AppState, Camera, OnboardingStage } from '../types';
 
 const STORAGE_KEY = 'prefecture-moving-map-workspace';
-const supportedPrefectures = new Set<PrefectureId>(['JP-01', 'JP-13', 'JP-37', 'JP-47']);
+const supportedPrefectures = new Set<string>(PREFECTURES.map(([id]) => id));
 
 export type SavedWorkspace = {
   version: 1;
   state: AppState;
-  camera: { zoom: number; centerX: number; centerY: number };
-  onboardingStage?: 'ready' | 'placed' | 'done';
+  camera: Camera;
+  onboardingStage?: OnboardingStage;
 };
 
 export function saveWorkspace(workspace: SavedWorkspace): void {
@@ -22,7 +23,7 @@ export function loadWorkspace(): SavedWorkspace | null {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
     if (!value) return null;
-    const parsed = JSON.parse(value) as SavedWorkspace;
+    const parsed: unknown = JSON.parse(value);
     if (!isSavedWorkspace(parsed)) throw new Error('Invalid saved workspace');
     return parsed;
   } catch {
@@ -39,16 +40,28 @@ export function clearWorkspace(): void {
   }
 }
 
-function isSavedWorkspace(value: SavedWorkspace): boolean {
-  return value?.version === 1
-    && supportedPrefectures.has(value.state?.selectedPrefectureId)
-    && (value.state.selectedPieceId === null || typeof value.state.selectedPieceId === 'string')
-    && Array.isArray(value.state.pieces)
-    && value.state.pieces.every((piece) =>
-      typeof piece.id === 'string'
-      && supportedPrefectures.has(piece.prefectureId)
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPrefectureId(value: unknown): boolean {
+  return typeof value === 'string' && supportedPrefectures.has(value);
+}
+
+function isSavedWorkspace(value: unknown): value is SavedWorkspace {
+  if (!isRecord(value) || !isRecord(value.state) || !isRecord(value.camera)) return false;
+  const { state, camera } = value;
+  return value.version === 1
+    && isPrefectureId(state.selectedPrefectureId)
+    && (state.selectedPieceId === null || typeof state.selectedPieceId === 'string')
+    && Array.isArray(state.pieces)
+    && state.pieces.every((piece: unknown) =>
+      isRecord(piece)
+      && typeof piece.id === 'string'
+      && isPrefectureId(piece.prefectureId)
       && [piece.x, piece.y, piece.rotation, piece.zIndex].every(Number.isFinite),
     )
-    && [value.camera?.zoom, value.camera?.centerX, value.camera?.centerY].every(Number.isFinite)
-    && (value.onboardingStage === undefined || ['ready', 'placed', 'done'].includes(value.onboardingStage));
+    && [camera.zoom, camera.centerX, camera.centerY].every(Number.isFinite)
+    && (value.onboardingStage === undefined || value.onboardingStage === 'ready'
+      || value.onboardingStage === 'placed' || value.onboardingStage === 'done');
 }

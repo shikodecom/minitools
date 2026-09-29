@@ -2,13 +2,14 @@ import { geoConicConformal, geoPath, type GeoProjection } from 'd3-geo';
 import type { JapanGeoJson, ProjectedShape } from '../types';
 
 export const VIEWBOX = { width: 1000, height: 760 } as const;
+export const MAP_BOUNDS: [[number, number], [number, number]] = [[56, 44], [944, 704]];
 
 export function createJapanProjection(data: JapanGeoJson): GeoProjection {
   return geoConicConformal()
     .parallels([30, 40])
     .rotate([-138, 0])
     .center([0, 36])
-    .fitExtent([[56, 44], [944, 704]], data);
+    .fitExtent(MAP_BOUNDS, data);
 }
 
 export function projectShapes(data: JapanGeoJson, projection = createJapanProjection(data)): Map<string, ProjectedShape> {

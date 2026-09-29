@@ -1,86 +1,24 @@
 import './styles.css';
+import { createMapGestures } from './ui/gestures';
+import { renderLayout } from './ui/layout';
+import { pieceTransform, renderMap } from './ui/map';
+import { setupIframeHeightMessaging } from './ui/iframe';
 import { addPiece, createInitialState, deleteSelectedPiece, PIECE_LIMIT, selectPiece, updatePiece } from './app/state';
+import { cameraFromAnchor, cameraViewBox, constrainCamera, createInitialCamera, INITIAL_ZOOM, MAX_ZOOM, MIN_ZOOM } from './app/camera';
+import { WorkspaceHistory } from './app/history';
 import { clearWorkspace, loadWorkspace, saveWorkspace } from './app/storage';
 import { shareMap } from './export/share';
 import { clientToSvg, constrainTranslation, projectShapes, VIEWBOX } from './geo/projection';
-import type { AppState, JapanGeoJson, Piece, PrefectureId, ProjectedShape } from './types';
+import type { AppState, JapanGeoJson, OnboardingStage, Point, PrefectureId, ProjectedShape, WorkspaceSnapshot } from './types';
 import { PREFECTURES } from './data/prefectures';
-
-const choices: Array<{ id: PrefectureId; name: string }> = PREFECTURES.map(([id, name]) => ({ id, name }));
-const INITIAL_ZOOM = 1.1;
 
 let state: AppState = createInitialState();
 let shapes = new Map<string, ProjectedShape>();
-let svg: SVGSVGElement;
-const camera = { zoom: INITIAL_ZOOM, centerX: VIEWBOX.width / 2, centerY: VIEWBOX.height / 2 };
-const activePointers = new Map<number, { x: number; y: number }>();
-let cameraPan: { pointerId: number; startX: number; startY: number; centerX: number; centerY: number } | null = null;
-let pinch: { distance: number; anchor: { x: number; y: number }; pointerIds: [number, number] } | null = null;
-let cancelActivePieceGesture: (() => void) | null = null;
-type OnboardingStage = 'ready' | 'placed' | 'done';
+let camera = createInitialCamera();
 let onboardingStage: OnboardingStage = 'ready';
-type HistoryEntry = { state: AppState; camera: typeof camera; onboardingStage: OnboardingStage };
-const history: HistoryEntry[] = [];
-const HISTORY_LIMIT = 50;
+const history = new WorkspaceHistory();
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="hero">
-    <div class="step-list" aria-label="遊び方">
-      <span class="step-chip step-one"><b>1</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14M12 4v11m-4-4 4 4 4-4" /></svg>出す</span>
-      <span class="step-chip step-two"><b>2</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v12m0 0-3-3m3 3 3-3m5-5v12m0-12-3 3m3-3 3 3" /></svg>動かす</span>
-      <span class="step-chip step-three"><b>3</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 7-4 7 4-7 4-7-4Zm0 4 7 4 7-4m-14 4 7 4 7-4" /></svg>重ねる</span>
-    </div>
-    <div class="title-row">
-      <div>
-        <h1>都道府県移動まっぷす</h1>
-        <p class="hero-copy">好きな県を出して、動かして、重ねてみよう！</p>
-      </div>
-      <svg class="map-friend" viewBox="0 0 100 100" role="img" aria-label="地図のキャラクター">
-        <path d="M24 17 53 10l24 14-5 27 10 18-24 17-26-8-13-24 8-17-3-20Z" />
-        <circle cx="43" cy="47" r="3" /><circle cx="59" cy="47" r="3" />
-        <path class="friend-mouth" d="M46 57q6 6 12 0" /><circle class="friend-cheek" cx="67" cy="56" r="4" />
-        <path class="friend-wave" d="M24 50q-13-9-15 3m67-14q12-9 16 0" />
-      </svg>
-    </div>
-  </header>
-  <main class="layout">
-    <section class="controls" aria-label="地図の操作">
-      <h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.3 7-12A7 7 0 1 0 5 9c0 5.7 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>どの都道府県を出す？</h2>
-      <div class="select-row">
-        <label class="prefecture-picker" for="prefecture">
-          <svg id="prefecture-preview" class="prefecture-preview" aria-hidden="true"></svg>
-          <span class="select-label">都道府県</span>
-          <select id="prefecture" aria-label="都道府県">${choices.map((choice) => `<option value="${choice.id}">${choice.name}</option>`).join('')}</select>
-          <svg class="select-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" /></svg>
-        </label>
-        <button id="add" class="primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>地図に出す</button>
-      </div>
-      <div class="action-row">
-        <button id="delete" class="danger-action" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" /></svg>消す</button>
-        <button id="undo" class="undo-action" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M5 12h8a6 6 0 0 1 6 6" /></svg>1つ戻す</button>
-        <button id="share" class="share-action" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4m-7.5 6.8 7.5 4.4" /></svg>シェア</button>
-      </div>
-      <p class="panel-note"><span aria-hidden="true"></span>都道府県は何個でも出せるよ<span aria-hidden="true"></span></p>
-    </section>
-    <div class="map-area">
-      <section class="map-card" aria-label="日本地図キャンバス">
-        <div id="loading" class="loading">地図を準備しています…</div>
-        <svg id="map" viewBox="0 0 ${VIEWBOX.width} ${VIEWBOX.height}" role="img" aria-label="都道府県を移動できる日本地図" tabindex="0"></svg>
-        <button id="reset" class="map-reset" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg>リセット</button>
-        <div id="first-guide" class="first-guide is-hidden" aria-live="polite">ドラッグして、好きな場所に重ねてみよう</div>
-        <div class="map-zoom" aria-label="地図の拡大縮小">
-          <button id="zoom-in" type="button" aria-label="地図を拡大">＋</button>
-          <button id="zoom-out" type="button" aria-label="地図を縮小">−</button>
-          <button id="zoom-reset" class="zoom-fit" type="button" aria-label="地図を全体表示"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5" /></svg><span>全体</span></button>
-        </div>
-        <div id="share-error" class="share-error" role="alert" hidden>共有画像を作れませんでした。もう一度お試しください。</div>
-      </section>
-    </div>
-  </main>
-  <footer>
-    <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">地図データ: Natural Earth</a>
-  </footer>
-`;
+document.querySelector<HTMLDivElement>('#app')!.innerHTML = renderLayout();
 
 setupIframeHeightMessaging();
 
@@ -89,16 +27,19 @@ const addButton = document.querySelector<HTMLButtonElement>('#add')!;
 const deleteButton = document.querySelector<HTMLButtonElement>('#delete')!;
 const undoButton = document.querySelector<HTMLButtonElement>('#undo')!;
 const shareButton = document.querySelector<HTMLButtonElement>('#share')!;
+const shareButtonMarkup = shareButton.innerHTML;
 const resetButton = document.querySelector<HTMLButtonElement>('#reset')!;
 const zoomInButton = document.querySelector<HTMLButtonElement>('#zoom-in')!;
 const zoomOutButton = document.querySelector<HTMLButtonElement>('#zoom-out')!;
 const zoomResetButton = document.querySelector<HTMLButtonElement>('#zoom-reset')!;
 const previewSvg = document.querySelector<SVGSVGElement>('#prefecture-preview')!;
-svg = document.querySelector<SVGSVGElement>('#map')!;
-svg.addEventListener('pointerdown', onViewportPointerDown, { capture: true });
-svg.addEventListener('pointermove', onViewportPointerMove, { capture: true });
-svg.addEventListener('pointerup', onViewportPointerEnd, { capture: true });
-svg.addEventListener('pointercancel', onViewportPointerEnd, { capture: true });
+const svg = document.querySelector<SVGSVGElement>('#map')!;
+svg.addEventListener('pointerdown', onCanvasPointerDown);
+const gestures = createMapGestures(svg, {
+  getCamera: () => camera,
+  setCamera,
+  setCameraFromAnchor,
+});
 
 void initialize();
 
@@ -116,7 +57,7 @@ async function initialize(): Promise<void> {
       updateFirstGuide();
       setCamera(saved.camera.centerX, saved.camera.centerY, saved.camera.zoom);
     } else {
-      state = createDefaultState();
+      state = createInitialState();
       onboardingStage = 'ready';
       updateFirstGuide();
       setCamera(VIEWBOX.width / 2, VIEWBOX.height / 2, INITIAL_ZOOM);
@@ -133,8 +74,8 @@ async function initialize(): Promise<void> {
 function validateData(data: JapanGeoJson): void {
   if (data.type !== 'FeatureCollection' || data.features.length !== 47) throw new Error('Expected 47 prefecture features');
   const availableIds = new Set(data.features.map((feature) => feature.properties.id));
-  for (const choice of choices) {
-    if (!availableIds.has(choice.id)) throw new Error(`Missing ${choice.id}`);
+  for (const [id] of PREFECTURES) {
+    if (!availableIds.has(id)) throw new Error(`Missing ${id}`);
   }
 }
 
@@ -167,7 +108,7 @@ undoButton.addEventListener('click', undoLastOperation);
 
 shareButton.addEventListener('click', async () => {
   shareButton.disabled = true;
-    shareButton.textContent = '準備中…';
+  shareButton.textContent = '準備中…';
   try {
     const result = await shareMap(svg, state.selectedPrefectureId, state.pieces);
     if (result === 'shared') notify('共有シートを開きました。');
@@ -176,7 +117,7 @@ shareButton.addEventListener('click', async () => {
     console.error(error);
     showShareError();
   } finally {
-    shareButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4m-7.5 6.8 7.5 4.4" /></svg>シェア';
+    shareButton.innerHTML = shareButtonMarkup;
     updateControls();
   }
 });
@@ -206,46 +147,10 @@ document.addEventListener('keydown', (event) => {
 });
 
 function render(): void {
-  const background = [...shapes.values()]
-    .map((shape) => `<path class="prefecture-boundary" d="${shape.path}" vector-effect="non-scaling-stroke" />`)
-    .join('');
-  const pieces = [...state.pieces]
-    .sort((a, b) => a.zIndex - b.zIndex)
-    .map((piece) => renderPiece(piece, shapes.get(piece.prefectureId)!))
-    .join('');
-  svg.innerHTML = `
-    <rect class="map-background" width="1000" height="760" rx="24" />
-    <g class="map-decor" aria-hidden="true">
-      <g class="cloud cloud-a"><path d="M74 145c0-18 15-32 33-32 13 0 24 7 29 18 5-4 12-6 19-6 17 0 31 13 31 30H74Z" /></g>
-      <g class="plane"><path d="m188 190 54-19 13 8-43 27-9 24-8-2 1-21-25 4-6-6 23-15Z"/><path class="trail" d="M165 211C105 235 62 274 28 320" /></g>
-      <g class="sparkles"><path d="m154 444 5 12 12 5-12 5-5 12-5-12-12-5 12-5 5-12Zm687-243 4 9 9 4-9 4-4 9-4-9-9-4 9-4 4-9Zm34 352 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" /></g>
-      <path class="travel-route" d="M735 515c74-20 102-73 76-130" />
-    </g>
-    <g class="japan-background">${background}</g>
-    <g id="pieces">${pieces}</g>
-  `;
-  svg.addEventListener('pointerdown', onCanvasPointerDown);
+  svg.innerHTML = renderMap(state, shapes);
   bindPieceInteractions();
   updateControls();
   persistWorkspace();
-}
-
-function renderPiece(piece: Piece, shape: ProjectedShape): string {
-  const selected = piece.id === state.selectedPieceId;
-  const [cx, cy] = shape.center;
-  const handleY = shape.bounds[0][1] - 32;
-  return `
-    <g class="piece${selected ? ' is-selected' : ''}" data-piece-id="${piece.id}" data-testid="piece"
-      transform="translate(${piece.x} ${piece.y}) rotate(${piece.rotation} ${cx} ${cy})">
-      <path class="piece-hit-area" data-export="exclude" d="${shape.path}" vector-effect="non-scaling-stroke" />
-      <path class="piece-shape" d="${shape.path}" vector-effect="non-scaling-stroke" />
-      ${selected ? `<g data-export="exclude" class="selection-ui">
-        <rect class="selection-box" x="${shape.bounds[0][0]}" y="${shape.bounds[0][1]}" width="${shape.bounds[1][0] - shape.bounds[0][0]}" height="${shape.bounds[1][1] - shape.bounds[0][1]}" rx="6" />
-        <line class="handle-line" x1="${cx}" y1="${shape.bounds[0][1]}" x2="${cx}" y2="${handleY}" />
-        <circle class="rotation-handle" data-rotate-handle cx="${cx}" cy="${handleY}" r="18" />
-        <text class="rotation-icon" x="${cx}" y="${handleY + 7}" text-anchor="middle">↻</text>
-      </g>` : ''}
-    </g>`;
 }
 
 function bindPieceInteractions(): void {
@@ -253,95 +158,6 @@ function bindPieceInteractions(): void {
     group.addEventListener('pointerdown', onPiecePointerDown);
   });
   svg.querySelector<SVGCircleElement>('[data-rotate-handle]')?.addEventListener('pointerdown', onRotatePointerDown);
-}
-
-function onViewportPointerDown(event: PointerEvent): void {
-  if (event.pointerType === 'mouse' && event.button !== 0) return;
-  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-  try { svg.setPointerCapture(event.pointerId); } catch { /* Capture is best-effort on older Safari. */ }
-
-  if (activePointers.size >= 2) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    cancelActivePieceGesture?.();
-    cameraPan = null;
-    const entries = [...activePointers.entries()].slice(0, 2);
-    const midpoint = pointerMidpoint(entries[0][1], entries[1][1]);
-    pinch = {
-      distance: pointerDistance(entries[0][1], entries[1][1]),
-      anchor: clientToSvg(svg, midpoint.x, midpoint.y),
-      pointerIds: [entries[0][0], entries[1][0]],
-    };
-    document.body.classList.add('is-interacting');
-    return;
-  }
-
-  const target = event.target as Element;
-  if (!target.closest('[data-piece-id]')) {
-    event.preventDefault();
-    cameraPan = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      centerX: camera.centerX,
-      centerY: camera.centerY,
-    };
-    document.body.classList.add('is-interacting');
-  }
-}
-
-function onViewportPointerMove(event: PointerEvent): void {
-  if (!activePointers.has(event.pointerId)) return;
-  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-  if (pinch) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const first = activePointers.get(pinch.pointerIds[0]);
-    const second = activePointers.get(pinch.pointerIds[1]);
-    if (!first || !second) return;
-    const midpoint = pointerMidpoint(first, second);
-    const nextZoom = camera.zoom * (pointerDistance(first, second) / Math.max(1, pinch.distance));
-    pinch.distance = pointerDistance(first, second);
-    setCameraFromAnchor(nextZoom, pinch.anchor, midpoint.x, midpoint.y);
-    pinch.anchor = clientToSvg(svg, midpoint.x, midpoint.y);
-    return;
-  }
-
-  if (cameraPan?.pointerId === event.pointerId) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const rect = svg.getBoundingClientRect();
-    const worldPerPixel = (VIEWBOX.width / camera.zoom) / rect.width;
-    setCamera(
-      cameraPan.centerX - (event.clientX - cameraPan.startX) * worldPerPixel,
-      cameraPan.centerY - (event.clientY - cameraPan.startY) * worldPerPixel,
-      camera.zoom,
-    );
-  }
-}
-
-function onViewportPointerEnd(event: PointerEvent): void {
-  activePointers.delete(event.pointerId);
-  if (pinch) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (activePointers.size < 2) {
-      pinch = null;
-      activePointers.clear();
-      cameraPan = null;
-    }
-  }
-  if (cameraPan?.pointerId === event.pointerId) cameraPan = null;
-  if (!pinch && !cameraPan && !cancelActivePieceGesture) document.body.classList.remove('is-interacting');
-}
-
-function pointerDistance(first: { x: number; y: number }, second: { x: number; y: number }): number {
-  return Math.hypot(second.x - first.x, second.y - first.y);
-}
-
-function pointerMidpoint(first: { x: number; y: number }, second: { x: number; y: number }): { x: number; y: number } {
-  return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
 }
 
 function onCanvasPointerDown(event: PointerEvent): void {
@@ -366,7 +182,7 @@ function onPiecePointerDown(event: PointerEvent): void {
   const shape = shapes.get(piece.prefectureId)!;
   const start = clientToSvg(svg, event.clientX, event.clientY);
   const origin = { x: piece.x, y: piece.y };
-  beginPointerGesture(event.pointerId, (move) => {
+  gestures.beginPieceGesture(event.pointerId, (move) => {
     if (!historyRecorded) { pushHistory(beforeGesture); historyRecorded = true; }
     markInteracted();
     svg.querySelector<SVGGElement>(`[data-piece-id="${id}"]`)?.classList.add('is-dragging');
@@ -391,7 +207,7 @@ function onRotatePointerDown(event: PointerEvent): void {
   const originRotation = piece.rotation;
   const beforeGesture = historyEntry();
   let historyRecorded = false;
-  beginPointerGesture(event.pointerId, (move) => {
+  gestures.beginPieceGesture(event.pointerId, (move) => {
     if (!historyRecorded) { pushHistory(beforeGesture); historyRecorded = true; }
     markInteracted();
     const point = clientToSvg(svg, move.clientX, move.clientY);
@@ -401,53 +217,11 @@ function onRotatePointerDown(event: PointerEvent): void {
   }, () => render());
 }
 
-function beginPointerGesture(pointerId: number, move: (event: PointerEvent) => void, end: () => void): void {
-  document.body.classList.add('is-interacting');
-  try { svg.setPointerCapture(pointerId); } catch { /* Older Safari can reject capture during DOM updates. */ }
-  let pendingEvent: PointerEvent | null = null;
-  let animationFrame = 0;
-  const applyPendingMove = () => {
-    animationFrame = 0;
-    if (pendingEvent) {
-      move(pendingEvent);
-      pendingEvent = null;
-    }
-  };
-  const onMove = (event: PointerEvent) => {
-    if (event.pointerId !== pointerId) return;
-    event.preventDefault();
-    pendingEvent = event;
-    if (!animationFrame) animationFrame = requestAnimationFrame(applyPendingMove);
-  };
-  const finish = () => {
-    if (animationFrame) cancelAnimationFrame(animationFrame);
-    applyPendingMove();
-    svg.removeEventListener('pointermove', onMove);
-    svg.removeEventListener('pointerup', onEnd);
-    svg.removeEventListener('pointercancel', onEnd);
-    try {
-      if (svg.hasPointerCapture(pointerId)) svg.releasePointerCapture(pointerId);
-    } catch { /* Capture may already have been released by the browser. */ }
-    cancelActivePieceGesture = null;
-    document.body.classList.remove('is-interacting');
-    end();
-  };
-  const onEnd = (event: PointerEvent) => {
-    if (event.pointerId !== pointerId) return;
-    finish();
-  };
-  cancelActivePieceGesture?.();
-  cancelActivePieceGesture = finish;
-  svg.addEventListener('pointermove', onMove);
-  svg.addEventListener('pointerup', onEnd);
-  svg.addEventListener('pointercancel', onEnd);
-}
-
 function updatePieceTransform(id: string): void {
   const piece = state.pieces.find((item) => item.id === id)!;
   const shape = shapes.get(piece.prefectureId)!;
   svg.querySelector<SVGGElement>(`[data-piece-id="${id}"]`)?.setAttribute(
-    'transform', `translate(${piece.x} ${piece.y}) rotate(${piece.rotation} ${shape.center[0]} ${shape.center[1]})`,
+    'transform', pieceTransform(piece, shape),
   );
 }
 
@@ -458,8 +232,8 @@ function updateControls(): void {
   shareButton.disabled = state.pieces.length === 0;
   addButton.disabled = shapes.size === 0 || state.pieces.length >= PIECE_LIMIT;
   select.value = state.selectedPrefectureId;
-  zoomInButton.disabled = camera.zoom >= 30;
-  zoomOutButton.disabled = camera.zoom <= 1;
+  zoomInButton.disabled = camera.zoom >= MAX_ZOOM;
+  zoomOutButton.disabled = camera.zoom <= MIN_ZOOM;
   updatePrefecturePreview();
 }
 
@@ -482,10 +256,6 @@ function updateFirstGuide(): void {
   document.querySelector('#first-guide')?.classList.toggle('is-hidden', onboardingStage !== 'placed');
 }
 
-function createDefaultState(): AppState {
-  return createInitialState();
-}
-
 function deleteSelection(): void {
   if (!state.selectedPieceId) return;
   pushHistory();
@@ -496,14 +266,14 @@ function deleteSelection(): void {
 function resetEverything(): void {
   pushHistory();
   clearWorkspace();
-  state = createDefaultState();
+  state = createInitialState();
   onboardingStage = 'ready';
   updateFirstGuide();
   setCamera(VIEWBOX.width / 2, VIEWBOX.height / 2, INITIAL_ZOOM);
   render();
 }
 
-function historyEntry(): HistoryEntry {
+function historyEntry(): WorkspaceSnapshot {
   return {
     state: structuredClone(state),
     camera: { ...camera },
@@ -513,7 +283,6 @@ function historyEntry(): HistoryEntry {
 
 function pushHistory(entry = historyEntry()): void {
   history.push(entry);
-  if (history.length > HISTORY_LIMIT) history.shift();
   updateControls();
 }
 
@@ -545,32 +314,16 @@ function zoomCameraAt(nextZoom: number, clientX?: number, clientY?: number): voi
   setCameraFromAnchor(nextZoom, anchor, clientX, clientY);
 }
 
-function setCameraFromAnchor(nextZoom: number, anchor: { x: number; y: number }, clientX: number, clientY: number): void {
-  const zoom = Math.min(30, Math.max(1, nextZoom));
-  const rect = svg.getBoundingClientRect();
-  const width = VIEWBOX.width / zoom;
-  const offsetX = clientX - (rect.left + rect.width / 2);
-  const offsetY = clientY - (rect.top + rect.height / 2);
-  const worldPerPixel = width / rect.width;
-  setCamera(anchor.x - offsetX * worldPerPixel, anchor.y - offsetY * worldPerPixel, zoom);
+function setCameraFromAnchor(nextZoom: number, anchor: Point, clientX: number, clientY: number): void {
+  const next = cameraFromAnchor(nextZoom, anchor, { x: clientX, y: clientY }, svg.getBoundingClientRect());
+  setCamera(next.centerX, next.centerY, next.zoom);
 }
 
 function setCamera(centerX: number, centerY: number, zoom: number): void {
-  camera.zoom = Math.min(30, Math.max(1, zoom));
-  const width = VIEWBOX.width / camera.zoom;
-  const height = VIEWBOX.height / camera.zoom;
-  const horizontal = cameraRange(56, 944, width, VIEWBOX.width / 2);
-  const vertical = cameraRange(44, 704, height, VIEWBOX.height / 2);
-  camera.centerX = Math.min(horizontal.max, Math.max(horizontal.min, centerX));
-  camera.centerY = Math.min(vertical.max, Math.max(vertical.min, centerY));
-  svg.setAttribute('viewBox', `${camera.centerX - width / 2} ${camera.centerY - height / 2} ${width} ${height}`);
+  camera = constrainCamera({ centerX, centerY, zoom });
+  svg.setAttribute('viewBox', cameraViewBox(camera));
   updateControls();
   if (shapes.size > 0) persistWorkspace();
-}
-
-function cameraRange(min: number, max: number, viewportSize: number, fallbackCenter: number): { min: number; max: number } {
-  if (viewportSize >= max - min) return { min: fallbackCenter, max: fallbackCenter };
-  return { min: min + viewportSize / 2, max: max - viewportSize / 2 };
 }
 
 function notify(message: string): void {
@@ -581,20 +334,4 @@ function showShareError(): void {
   const error = document.querySelector<HTMLDivElement>('#share-error')!;
   error.hidden = false;
   window.setTimeout(() => { error.hidden = true; }, 5000);
-}
-
-function setupIframeHeightMessaging(): void {
-  if (window.parent === window) return;
-  let lastHeight = 0;
-  const sendHeight = () => {
-    const height = Math.ceil(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
-    if (height === lastHeight) return;
-    lastHeight = height;
-    window.parent.postMessage({ type: 'japan-maps-height', height }, 'https://www.shikode.com');
-  };
-  const observer = new ResizeObserver(sendHeight);
-  observer.observe(document.documentElement);
-  observer.observe(document.body);
-  window.addEventListener('resize', sendHeight);
-  requestAnimationFrame(sendHeight);
 }

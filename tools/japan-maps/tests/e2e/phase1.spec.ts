@@ -57,6 +57,10 @@ test('adds, drags and rotates Hokkaido', async ({ page }) => {
   await page.mouse.up();
   await expect(piece).not.toHaveAttribute('transform', beforeRotate!);
 
+  await page.getByRole('button', { name: '1つ戻す' }).click();
+  await expect(piece).toHaveAttribute('transform', beforeRotate!);
+  await page.getByRole('button', { name: '1つ戻す' }).click();
+  await expect(piece).toHaveAttribute('transform', beforeDrag!);
 });
 
 test('adds another prefecture at the current viewport center without clearing existing pieces', async ({ page }) => {
@@ -100,6 +104,11 @@ test('offers all 47 prefectures and adds a Phase 2 prefecture', async ({ page })
   await page.getByRole('button', { name: '地図に出す' }).click();
   await expect(page.getByTestId('piece')).toHaveCount(1);
   await expect(page.locator('.piece-shape')).toHaveAttribute('d', /^M.+Z$/);
+  const transform = await page.getByTestId('piece').getAttribute('transform');
+  await page.reload();
+  await expect(select).toHaveValue('JP-20');
+  await expect(page.getByTestId('piece')).toHaveCount(1);
+  await expect(page.getByTestId('piece')).toHaveAttribute('transform', transform!);
 });
 
 test('undoes add, delete and reset one operation at a time', async ({ page }) => {

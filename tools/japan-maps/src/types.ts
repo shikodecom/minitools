@@ -18,6 +18,18 @@ export type AppState = {
   pieces: Piece[];
 };
 
+export type Point = { x: number; y: number };
+
+export type Camera = { zoom: number; centerX: number; centerY: number };
+
+export type OnboardingStage = 'ready' | 'placed' | 'done';
+
+export type WorkspaceSnapshot = {
+  state: AppState;
+  camera: Camera;
+  onboardingStage: OnboardingStage;
+};
+
 export type PrefectureProperties = {
   id: string;
   name: string;

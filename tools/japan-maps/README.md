@@ -55,8 +55,20 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-- 単体テスト: Vitest（状態操作、上限、角度正規化、投影・移動制約、PNGファイル名）
+- 単体テスト: Vitest（状態操作、上限、角度正規化、投影・移動制約、カメラ・ズーム、Undo履歴、47都道府県の保存復元、PNGファイル名）
 - E2E: Playwright Chromium（PC・Pixel 7相当viewport、47都道府県、Undo、移動、回転、パン、ピンチ、MultiPolygon、PNG生成・共有）
+
+## ソース構成
+
+- `src/main.ts`: 初期化、操作イベントと状態更新の接続
+- `src/app/state.ts`: ピースの追加・選択・移動・削除
+- `src/app/camera.ts`: カメラの範囲制約、ズームの基準点、viewBox計算
+- `src/app/history.ts`: 状態・カメラ・案内表示のスナップショットと最大50件のUndo履歴
+- `src/app/storage.ts`: localStorageへの保存と復元時のデータ検証
+- `src/ui/`: 画面テンプレート、SVG描画、ポインター操作、iframeの高さ通知
+- `src/geo/`: 地理投影と座標変換
+- `src/data/prefectures.ts`: 選択肢・保存検証で共用する47都道府県の一覧
+- `src/export/`: PNG生成と共有
 
 ## WordPressサイト配下への配置
 
